@@ -248,3 +248,16 @@ app.get('/logout', (req, res) => {
   res.clearCookie('nsn_auth', { domain: '.labnsn.com', path: '/' });
   res.redirect('https://labnsn.com');
 });
+
+// ── Auth validation endpoint (used by nginx auth_request) ─────────────────────
+// Returns 200 if valid JWT cookie, 401 if not
+app.get('/validate', (req, res) => {
+  const token = req.cookies.nsn_auth;
+  if (!token) return res.status(401).json({ error: 'No token' });
+  try {
+    jwt.verify(token, JWT_SECRET);
+    res.status(200).json({ ok: true });
+  } catch(e) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});

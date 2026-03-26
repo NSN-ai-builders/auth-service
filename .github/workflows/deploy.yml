@@ -1,0 +1,19 @@
+name: Deploy to lab-nsn
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to lab-nsn VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            /opt/lab-nsn/deploy.sh ${{ github.event.repository.name }} ${{ github.server_url }}/${{ github.repository }}.git

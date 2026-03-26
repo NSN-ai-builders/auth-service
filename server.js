@@ -236,6 +236,7 @@ app.get('/landing', (req, res) => {
     ${statusHtml}
     <div class="apps">
       <a class="app" href="https://rankings-app.labnsn.com">Rankings App <span>→</span></a>
+      <a class="app" href="https://bet-writer-pro.labnsn.com">BetWriter Pro <span>→</span></a>
     </div>
     ${actionHtml}
   </div>

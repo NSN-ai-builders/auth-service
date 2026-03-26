@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 3000;
 if (!JWT_SECRET) { console.error('JWT_SECRET required'); process.exit(1); }
 if (!process.env.RESEND_API_KEY) { console.error('RESEND_API_KEY required'); process.exit(1); }
 
+// Trust nginx reverse proxy
+app.set('trust proxy', 1);
+
 // In-memory token store (nonce → {email, redirect, expires})
 const tokens = new Map();
 
@@ -24,10 +27,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
+  // If already authenticated, redirect
+  const token = req.cookies.nsn_auth;
+  if (token) {
+    try {
+      jwt.verify(token, JWT_SECRET);
+      const redirect = req.query.redirect || 'https://labnsn.com';
+      return res.redirect(redirect);
+    } catch(e) {}
+  }
+
   const redirect = req.query.redirect || '';
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -109,22 +122,30 @@ app.post('/request-link', loginLimiter, async (req, res) => {
   }
 
   const nonce = crypto.randomBytes(32).toString('hex');
-  const expires = Date.now() + 15 * 60 * 1000; // 15 min
+  const expires = Date.now() + 15 * 60 * 1000;
   tokens.set(nonce, { email: email.toLowerCase(), redirect: redirect || '', expires });
 
   const link = `${BASE_URL}/verify?token=${nonce}`;
 
-  await resend.emails.send({
-    from: 'NSN Lab <noreply@labnsn.com>',
-    to: email,
-    subject: 'Your magic link',
-    html: `
-      <p>Hi,</p>
-      <p>Click the link below to sign in to NSN Lab. It expires in 15 minutes.</p>
-      <p><a href="${link}" style="background:#111;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Sign in to NSN Lab</a></p>
-      <p style="color:#888;font-size:12px;margin-top:20px;">If you didn't request this, ignore this email.</p>
-    `
-  });
+  try {
+    await resend.emails.send({
+      from: 'NSN Lab <noreply@labnsn.com>',
+      to: email,
+      subject: 'Your magic link for NSN Lab',
+      html: `
+        <div style="font-family:-apple-system,sans-serif;max-width:400px;margin:0 auto;padding:40px 20px">
+          <p style="color:#666;font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:24px">NSN Lab</p>
+          <h1 style="font-size:22px;margin-bottom:12px;color:#111">Sign in</h1>
+          <p style="color:#555;margin-bottom:28px">Click the button below to sign in. This link expires in 15 minutes.</p>
+          <a href="${link}" style="display:inline-block;background:#111;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Sign in to NSN Lab</a>
+          <p style="color:#aaa;font-size:12px;margin-top:28px">If you didn't request this, ignore this email.</p>
+        </div>
+      `
+    });
+  } catch(e) {
+    console.error('Resend error:', e.message);
+    return res.status(500).send('Failed to send email. Try again.');
+  }
 
   res.redirect('/sent');
 });
@@ -140,16 +161,20 @@ app.get('/verify', (req, res) => {
 
   tokens.delete(token);
 
-  const jwt_token = jwt.sign({ email: entry.email }, JWT_SECRET, { expiresIn: '7d' });
+  const jwtToken = jwt.sign({ email: entry.email }, JWT_SECRET, { expiresIn: '7d' });
 
-  res.cookie('nsn_auth', jwt_token, {
+  // Set cookie on .labnsn.com domain so all subdomains can read it
+  res.cookie('nsn_auth', jwtToken, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
+    domain: '.labnsn.com',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
 
-  const redirectTo = entry.redirect || 'https://labnsn.com';
+  const redirectTo = entry.redirect && entry.redirect.startsWith('https://') 
+    ? entry.redirect 
+    : 'https://labnsn.com';
   res.redirect(redirectTo);
 });
 

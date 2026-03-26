@@ -182,3 +182,69 @@ app.get('/verify', (req, res) => {
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => console.log(`Auth service running on port ${PORT}`));
+
+// ── Landing page (labnsn.com) ─────────────────────────────────────────────────
+app.get('/landing', (req, res) => {
+  let email = null;
+  const token = req.cookies.nsn_auth;
+  if (token) {
+    try { email = jwt.verify(token, JWT_SECRET).email; } catch(e) {}
+  }
+
+  const statusHtml = email
+    ? `<div class="status in"><span class="dot in"></span>Logged in as ${email}</div>`
+    : `<div class="status out"><span class="dot out"></span>Not logged in</div>`;
+
+  const actionHtml = email
+    ? `<a class="action" href="/logout">Sign out</a>`
+    : `<a class="action" href="https://auth.labnsn.com">Sign in →</a>`;
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSN Lab</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #0f0f0f; color: #e5e5e5;
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .wrap { text-align: center; padding: 40px; }
+    .logo { font-size: 12px; font-weight: 600; color: #444; letter-spacing: 0.15em;
+            text-transform: uppercase; margin-bottom: 32px; }
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+              padding: 6px 14px; border-radius: 20px; margin-bottom: 32px; }
+    .status.in { background: #0d2d0d; color: #4ade80; border: 1px solid #166534; }
+    .status.out { background: #1a1a1a; color: #666; border: 1px solid #2a2a2a; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot.in { background: #4ade80; } .dot.out { background: #555; }
+    .apps { display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto 24px; }
+    a.app { display: block; padding: 14px 20px; background: #1a1a1a; border: 1px solid #2a2a2a;
+        border-radius: 8px; color: #e5e5e5; text-decoration: none; font-size: 14px; }
+    a.app:hover { border-color: #555; }
+    a.app span { color: #555; font-size: 12px; float: right; }
+    a.action { font-size: 12px; color: #555; text-decoration: none; }
+    a.action:hover { color: #888; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">NSN Lab</div>
+    <h1>AI Builders</h1>
+    ${statusHtml}
+    <div class="apps">
+      <a class="app" href="https://rankings-app.labnsn.com">Rankings App <span>→</span></a>
+    </div>
+    ${actionHtml}
+  </div>
+</body>
+</html>`);
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+app.get('/logout', (req, res) => {
+  res.clearCookie('nsn_auth', { domain: '.labnsn.com', path: '/' });
+  res.redirect('https://labnsn.com');
+});

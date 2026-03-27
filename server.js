@@ -191,22 +191,48 @@ app.get('/landing', (req, res) => {
     try { email = jwt.verify(token, JWT_SECRET).email; } catch(e) {}
   }
 
+  // Deploy dates (UTC → human-readable)
+  const apps = [
+    {
+      url: 'https://rankings-app.labnsn.com',
+      name: 'Rankings App',
+      emoji: '📈',
+      desc: 'Track keyword positions across all NSN sites. Spot ranking trends at a glance.',
+      deployed: 'Mar 26, 2026'
+    },
+    {
+      url: 'https://bet-writer-pro.labnsn.com',
+      name: 'BetWriter Pro',
+      emoji: '✍️',
+      desc: 'AI-powered content generator for sports betting pages. SEO-optimised in seconds.',
+      deployed: 'Mar 26, 2026'
+    },
+    {
+      url: 'https://dmca-report.labnsn.com',
+      name: 'DMCA Report',
+      emoji: '🛡️',
+      desc: 'Monitor copyright takedown requests on our domains via Google Transparency Report.',
+      deployed: 'Mar 27, 2026'
+    }
+  ];
+
+  const appsHtml = apps.map(a => `
+    <a class="app" href="${a.url}">
+      <div class="app-top">
+        <span class="app-emoji">${a.emoji}</span>
+        <div class="app-meta">
+          <span class="app-name">${a.name}</span>
+          <span class="app-date">Deployed ${a.deployed}</span>
+        </div>
+        <span class="app-arrow">→</span>
+      </div>
+      <p class="app-desc">${a.desc}</p>
+    </a>
+  `).join('');
+
   const bodyHtml = email ? `
-    <div class="user">● ${email}</div>
-    <div class="apps">
-      <a class="app" href="https://rankings-app.labnsn.com">
-        <div class="app-header"><span class="app-name">Rankings App</span><span class="app-arrow">→</span></div>
-        <span class="app-desc">Suivi des positions SEO par mot-clé et par site. Visualise les tendances de ranking dans le temps.</span>
-      </a>
-      <a class="app" href="https://bet-writer-pro.labnsn.com">
-        <div class="app-header"><span class="app-name">BetWriter Pro</span><span class="app-arrow">→</span></div>
-        <span class="app-desc">Générateur de contenu IA pour les pages de paris sportifs. Produit des articles optimisés SEO en quelques secondes.</span>
-      </a>
-      <a class="app" href="https://dmca-report.labnsn.com">
-        <div class="app-header"><span class="app-name">DMCA Report</span><span class="app-arrow">→</span></div>
-        <span class="app-desc">Surveillance des signalements DMCA (droits d'auteur) sur nos domaines, via Google Transparency Report.</span>
-      </a>
-    </div>
+    <div class="user"><span class="dot-green"></span>${email}</div>
+    <div class="apps">${appsHtml}</div>
     <a class="action" href="/logout">Sign out</a>
   ` : `
     <p class="tagline">Internal tools — NSN team only</p>
@@ -220,37 +246,47 @@ app.get('/landing', (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NSN Lab</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-           background: #0f0f0f; color: #e5e5e5;
+           background: #0a0a0a; color: #e5e5e5;
            display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .wrap { text-align: center; padding: 40px; max-width: 420px; width: 100%; }
-    .logo { font-size: 12px; font-weight: 600; color: #444; letter-spacing: 0.15em;
-            text-transform: uppercase; margin-bottom: 32px; }
-    h1 { font-size: 28px; font-weight: 600; margin-bottom: 28px; }
-    .user { font-size: 13px; color: #4ade80; margin-bottom: 24px; }
-    .tagline { font-size: 15px; color: #555; margin-bottom: 28px; }
-    .apps { display: flex; flex-direction: column; gap: 12px; margin: 0 auto 24px; }
-    a.app { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px;
-            background: #1a1a1a; border: 1px solid #2a2a2a;
-            border-radius: 8px; color: #e5e5e5; text-decoration: none; text-align: left; }
-    a.app:hover { border-color: #555; }
-    .app-header { display: flex; justify-content: space-between; align-items: center; }
-    .app-name { font-size: 14px; font-weight: 500; }
-    .app-arrow { color: #555; font-size: 12px; }
-    .app-desc { font-size: 12px; color: #666; line-height: 1.5; }
-    a.signin { display: inline-block; padding: 12px 28px; background: #1a1a1a;
-               border: 1px solid #2a2a2a; border-radius: 8px; color: #e5e5e5;
-               text-decoration: none; font-size: 14px; }
-    a.signin:hover { border-color: #555; }
-    a.action { font-size: 12px; color: #555; text-decoration: none; }
-    a.action:hover { color: #888; }
+    .wrap { padding: 48px 24px; max-width: 440px; width: 100%; }
+    .logo { font-size: 11px; font-weight: 700; color: #333; letter-spacing: 0.2em;
+            text-transform: uppercase; margin-bottom: 40px; text-align: center; }
+    h1 { font-size: 30px; font-weight: 700; text-align: center; margin-bottom: 4px; letter-spacing: -0.5px; }
+    .subtitle { font-size: 13px; color: #444; text-align: center; margin-bottom: 36px; }
+    .dot-green { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+                 background: #4ade80; margin-right: 6px; vertical-align: middle; }
+    .user { font-size: 13px; color: #4ade80; margin-bottom: 20px; text-align: center; }
+    .tagline { font-size: 15px; color: #444; margin-bottom: 28px; text-align: center; }
+    .apps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    a.app { display: block; padding: 16px 18px;
+            background: #111; border: 1px solid #222;
+            border-radius: 10px; color: #e5e5e5; text-decoration: none;
+            transition: border-color 0.15s, background 0.15s; }
+    a.app:hover { border-color: #444; background: #161616; }
+    .app-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .app-emoji { font-size: 20px; flex-shrink: 0; }
+    .app-meta { flex: 1; }
+    .app-name { display: block; font-size: 14px; font-weight: 600; }
+    .app-date { display: block; font-size: 11px; color: #444; margin-top: 1px; }
+    .app-arrow { color: #333; font-size: 14px; flex-shrink: 0; transition: color 0.15s; }
+    a.app:hover .app-arrow { color: #888; }
+    .app-desc { font-size: 12px; color: #555; line-height: 1.6; padding-left: 32px; }
+    a.signin { display: block; width: 100%; padding: 14px; background: #111;
+               border: 1px solid #222; border-radius: 10px; color: #e5e5e5;
+               text-decoration: none; font-size: 14px; text-align: center;
+               transition: border-color 0.15s; }
+    a.signin:hover { border-color: #444; }
+    a.action { display: block; font-size: 12px; color: #333; text-decoration: none; text-align: center; }
+    a.action:hover { color: #666; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="logo">NSN Lab</div>
+    <div class="logo">North Star Network</div>
     <h1>AI Builders</h1>
+    <p class="subtitle">Internal tooling — ${new Date().getFullYear()}</p>
     ${bodyHtml}
   </div>
 </body>

@@ -191,13 +191,27 @@ app.get('/landing', (req, res) => {
     try { email = jwt.verify(token, JWT_SECRET).email; } catch(e) {}
   }
 
-  const statusHtml = email
-    ? `<div class="status in"><span class="dot in"></span>Logged in as ${email}</div>`
-    : `<div class="status out"><span class="dot out"></span>Not logged in</div>`;
-
-  const actionHtml = email
-    ? `<a class="action" href="/logout">Sign out</a>`
-    : `<a class="action" href="https://auth.labnsn.com">Sign in →</a>`;
+  const bodyHtml = email ? `
+    <div class="user">● ${email}</div>
+    <div class="apps">
+      <a class="app" href="https://rankings-app.labnsn.com">
+        <div class="app-header"><span class="app-name">Rankings App</span><span class="app-arrow">→</span></div>
+        <span class="app-desc">Suivi des positions SEO par mot-clé et par site. Visualise les tendances de ranking dans le temps.</span>
+      </a>
+      <a class="app" href="https://bet-writer-pro.labnsn.com">
+        <div class="app-header"><span class="app-name">BetWriter Pro</span><span class="app-arrow">→</span></div>
+        <span class="app-desc">Générateur de contenu IA pour les pages de paris sportifs. Produit des articles optimisés SEO en quelques secondes.</span>
+      </a>
+      <a class="app" href="https://dmca-report.labnsn.com">
+        <div class="app-header"><span class="app-name">DMCA Report</span><span class="app-arrow">→</span></div>
+        <span class="app-desc">Surveillance des signalements DMCA (droits d'auteur) sur nos domaines, via Google Transparency Report.</span>
+      </a>
+    </div>
+    <a class="action" href="/logout">Sign out</a>
+  ` : `
+    <p class="tagline">Internal tools — NSN team only</p>
+    <a class="signin" href="https://auth.labnsn.com?redirect=https://labnsn.com">Sign in →</a>
+  `;
 
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -210,21 +224,25 @@ app.get('/landing', (req, res) => {
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
            background: #0f0f0f; color: #e5e5e5;
            display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .wrap { text-align: center; padding: 40px; }
+    .wrap { text-align: center; padding: 40px; max-width: 420px; width: 100%; }
     .logo { font-size: 12px; font-weight: 600; color: #444; letter-spacing: 0.15em;
             text-transform: uppercase; margin-bottom: 32px; }
-    h1 { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
-    .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
-              padding: 6px 14px; border-radius: 20px; margin-bottom: 32px; }
-    .status.in { background: #0d2d0d; color: #4ade80; border: 1px solid #166534; }
-    .status.out { background: #1a1a1a; color: #666; border: 1px solid #2a2a2a; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; }
-    .dot.in { background: #4ade80; } .dot.out { background: #555; }
-    .apps { display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto 24px; }
-    a.app { display: block; padding: 14px 20px; background: #1a1a1a; border: 1px solid #2a2a2a;
-        border-radius: 8px; color: #e5e5e5; text-decoration: none; font-size: 14px; }
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 28px; }
+    .user { font-size: 13px; color: #4ade80; margin-bottom: 24px; }
+    .tagline { font-size: 15px; color: #555; margin-bottom: 28px; }
+    .apps { display: flex; flex-direction: column; gap: 12px; margin: 0 auto 24px; }
+    a.app { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px;
+            background: #1a1a1a; border: 1px solid #2a2a2a;
+            border-radius: 8px; color: #e5e5e5; text-decoration: none; text-align: left; }
     a.app:hover { border-color: #555; }
-    a.app span { color: #555; font-size: 12px; float: right; }
+    .app-header { display: flex; justify-content: space-between; align-items: center; }
+    .app-name { font-size: 14px; font-weight: 500; }
+    .app-arrow { color: #555; font-size: 12px; }
+    .app-desc { font-size: 12px; color: #666; line-height: 1.5; }
+    a.signin { display: inline-block; padding: 12px 28px; background: #1a1a1a;
+               border: 1px solid #2a2a2a; border-radius: 8px; color: #e5e5e5;
+               text-decoration: none; font-size: 14px; }
+    a.signin:hover { border-color: #555; }
     a.action { font-size: 12px; color: #555; text-decoration: none; }
     a.action:hover { color: #888; }
   </style>
@@ -233,12 +251,7 @@ app.get('/landing', (req, res) => {
   <div class="wrap">
     <div class="logo">NSN Lab</div>
     <h1>AI Builders</h1>
-    ${statusHtml}
-    <div class="apps">
-      <a class="app" href="https://rankings-app.labnsn.com">Rankings App <span>→</span></a>
-      <a class="app" href="https://bet-writer-pro.labnsn.com">BetWriter Pro <span>→</span></a>
-    </div>
-    ${actionHtml}
+    ${bodyHtml}
   </div>
 </body>
 </html>`);

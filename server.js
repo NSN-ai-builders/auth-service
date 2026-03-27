@@ -10,6 +10,22 @@ const app = express();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const fs = require('fs');
+const path = require('path');
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+const AUDIT_DIR = '/app/data';
+const AUDIT_FILE = path.join(AUDIT_DIR, 'audit.jsonl');
+if (!fs.existsSync(AUDIT_DIR)) fs.mkdirSync(AUDIT_DIR, { recursive: true });
+
+function audit(event, data) {
+  const entry = JSON.stringify({
+    ts: new Date().toISOString(),
+    event,
+    ...data
+  }) + '\n';
+  fs.appendFileSync(AUDIT_FILE, entry);
+}
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || 'north-star.network';
 const BASE_URL = process.env.BASE_URL || 'https://auth.labnsn.com';
 const PORT = process.env.PORT || 3000;
@@ -147,6 +163,7 @@ app.post('/request-link', loginLimiter, async (req, res) => {
     return res.status(500).send('Failed to send email. Try again.');
   }
 
+  audit('link_requested', { email: email.toLowerCase(), ip: req.ip, redirect: redirect || '' });
   res.redirect('/sent');
 });
 
@@ -160,6 +177,7 @@ app.get('/verify', (req, res) => {
   }
 
   tokens.delete(token);
+  audit('login_success', { email: entry.email, ip: req.ip, redirect: entry.redirect || '' });
 
   const jwtToken = jwt.sign({ email: entry.email }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -182,6 +200,72 @@ app.get('/verify', (req, res) => {
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => console.log(`Auth service running on port ${PORT}`));
+
+// ── Admin: audit log viewer ──────────────────────────────────────────────────
+app.get('/admin/logs', (req, res) => {
+  // Only yann@ can access
+  const token = req.cookies.nsn_auth;
+  let email = null;
+  try { email = jwt.verify(token, JWT_SECRET).email; } catch(e) {}
+  if (email !== 'yann@north-star.network') {
+    return res.status(403).send('Forbidden');
+  }
+
+  let events = [];
+  if (fs.existsSync(AUDIT_FILE)) {
+    events = fs.readFileSync(AUDIT_FILE, 'utf8')
+      .split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch(e) { return null; } })
+      .filter(Boolean)
+      .reverse(); // newest first
+  }
+
+  const rows = events.map(e => {
+    const icon = e.event === 'login_success' ? '🟢' : e.event === 'link_requested' ? '📨' : '👁️';
+    const detail = e.email || '';
+    const uri = e.uri ? ` — <span style="color:#555">${e.uri}</span>` : '';
+    const redirect = e.redirect ? ` → <span style="color:#555">${e.redirect}</span>` : '';
+    return `<tr>
+      <td>${new Date(e.ts).toLocaleString('en-GB', {timeZone:'Europe/Paris'})}</td>
+      <td>${icon} ${e.event}</td>
+      <td>${detail}${uri}${redirect}</td>
+      <td style="color:#444">${e.ip || ''}</td>
+    </tr>`;
+  }).join('');
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSN Lab — Access Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #0a0a0a; color: #e5e5e5; padding: 40px 24px; }
+    .header { max-width: 900px; margin: 0 auto 32px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 20px; font-weight: 600; }
+    a.back { font-size: 13px; color: #555; text-decoration: none; }
+    a.back:hover { color: #888; }
+    table { width: 100%; max-width: 900px; margin: 0 auto; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 12px; color: #444; font-weight: 500; border-bottom: 1px solid #222; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1a1a1a; vertical-align: top; }
+    tr:hover td { background: #111; }
+    .empty { text-align: center; padding: 60px; color: #444; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Access log</h1>
+    <a class="back" href="https://labnsn.com">← Back</a>
+  </div>
+  <table>
+    <thead><tr><th>Time (Paris)</th><th>Event</th><th>Detail</th><th>IP</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" class="empty">No events yet.</td></tr>'}</tbody>
+  </table>
+</body>
+</html>`);
+});
 
 // ── Landing page (labnsn.com) ─────────────────────────────────────────────────
 app.get('/landing', (req, res) => {
@@ -305,7 +389,9 @@ app.get('/validate', (req, res) => {
   const token = req.cookies.nsn_auth;
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
-    jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET);
+    const referer = req.headers['x-original-uri'] || req.headers.referer || '';
+    audit('app_access', { email: payload.email, ip: req.ip, uri: referer });
     res.status(200).json({ ok: true });
   } catch(e) {
     res.status(401).json({ error: 'Invalid token' });
